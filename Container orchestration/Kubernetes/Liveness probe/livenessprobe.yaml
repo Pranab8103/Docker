@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod 
+metadata: 
+  name: liveness 
+spec: 
+  containers:
+  - name: liveness 
+    image: ubuntu
+    tty: true
+    livenessProbe:
+      exec:
+        command:
+        - service
+        - nginx 
+        - state 
+      initialDelaySeconds: 20
+      PeriodSeconds: 5

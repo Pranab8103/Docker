@@ -1,0 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-pod
+  namespace: default
+spec:
+  #it will apply to all the pods which matches below label
+  podSelector:
+    matchLabels:
+      run: pod01
+  #Ingress: blocks all ingress traffic
+  #Egress: blocks all outgoing traffic as well
+  policyTypes:
+    - Ingress
+    - Egress

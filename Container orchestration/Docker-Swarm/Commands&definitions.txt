@@ -1,0 +1,494 @@
+* Container orchestration is all about managing the life cycles of containers, especially
+in large, dynamic environments.
+
+* Container orchestration can be used to perform lots of tasks-
+    - Provisioning and deployment of containers
+    - Scaling up or removing containers to spread application load evenly
+    - Movement of containers from one host to another if there is a shortage of resources
+    - Load balancing of service discovery between containers
+    - Health monitoring of containers and hosts 
+
+* There are many container orchestration solutions which are available, some of the popular ones include:
+    - Docker Swarm
+    - Kubernetes
+    - Apache Mesos
+    - Elastic Containe service
+
+There are also various container orchestration platforms available like EKS.
+
+Docker Swarm
+------------
+> Docker swarm is a container orchestration tool which is natively supported by docker.
+
+> A node is an instance of the Docker engine participating in the swarm.
+> To deploy your application to a swarm, tou submit a service definition to a manager node. 
+> The manager node dispatches units of work called tasks to worker nodes.
+
+> docker swarm init
+
+> docker swarm init --advertise-addr 192.168.0.18
+
+#add this in node 2 and node 3
+> docker swarm join --token SWMTKN-1-1asmmbr2pjwzgcnzfeqg0c2xfhfcd6bic0aktoru5ov5k1d0i6-68uw95n9zuquinwghaetyhjmd 192.168.0.13:2377
+
+#To verify node pool in the swarm 
+> docker node ls
+
+ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
+nl7a6johw4zlsmx0192abm056 *   node1      Ready     Active         Leader           24.0.2
+1mtw35id04ri930kzq0tkoo7h     node2      Ready     Active                          24.0.2
+hyup9lxds32jh1vsqs336bsgx     node3      Ready     Active                          24.0.2
+
+#Service, task and containers
+-----------------------------
+* A service is the definition of the tasks to execute on the manager or worker nodes.
+
+> docker service --name webserver --replicas 1 nginx
+
+> docker service ls
+
+#gives information about the service and node in which it is running
+> docker service ps webserver
+
+ID             NAME          IMAGE          NODE      DESIRED STATE   CURRENT STATE                ERROR     PORTS
+4vzh4kbiyfkj   webserver.1   nginx:latest   node1     Running         Running about a minute ago  
+
+> docker ps 
+
+> docker stop 657ebac7a3fa
+
+> systemctl stop docker 
+
+> docker service ps webserver
+
+> docker service rm webserver
+
+#Scale swarm service
+--------------------
+* Once you have deployed a service to a swarm, you are ready to use the Docker CLI to scale the number 
+of cotntainers in the service.
+
+* Container running in a service are called "tasks"
+
+> docker service create --name webserver --replicas 1 nginx
+
+> docker service scale webserver=5
+
+#run in node 2 to check whether orchestrator automatically create new container in any other 2 nodes 
+> systemctl stop docker
+
+> docker service scale webserver=1
+
+> docker service rm webserver 
+
+#Multiple approaches to scale swarm services
+--------------------------------------------
+2 ways to scale a swarm service:
+
+    - docker service scale webserver=5
+    - docker service update --replicas 5 webserver
+
+> docker service create --name service01 --replicas 1 nginx
+
+> docker service create --name service02 --replicas 1 nginx
+
+> docker service ls
+
+> docker service scale service01=2
+
+> docker service update --replicas 2 service02
+
+#To check details of service/where it is hosted
+> docker service ps service01
+
+> docker service ps service02
+
+* difference between both commands is that here we can give multiple service to be scaled
+* where as in update command we cannot scale multiple containers.
+
+> docker service scale service01=3 service02=3
+
+# Replicated and global service
+-------------------------------
+There are 2 types of services deployments, replicated and global.
+
+* For a replicated service, you specify the number of identical tasks you want to run. For example, you decide to deploy an 
+ NGINX service with two replicas, each serving the same content.
+
+* A global service is a service that runs one tasks on every node. 
+  Each time you add a node to the swarm, the orchestrator creates a task and the scheduler assigns the task to the new
+  node.
+    eg: antivirus(you want to run antivirus automatically when a node joins a swarm cluster)
+
+Replicated service
+------------------
+> docker service create --name myreplica --replicas 1 nginx
+
+> docker service ps myreplica
+
+Global service
+--------------
+# create container in each node
+> docker service create --name antivirus --mode global -dt ubuntu
+
+#Draining swarm nodes
+---------------------
+> docker service create --name mywebserver --replicas 5 nginx
+
+> docker service ps mywebserver
+
+#drain all of the services running in node03 to other nodes. Done when we want the services to be running in a  
+node but server needs a restart.
+> docker node update --availability drain node3
+
+> docker service ps mywebserver
+
+> docker node update --availability active node3
+
+Inspect swarn service and nodes
+-------------------------------
+Docker Inspect provides detained information of the Docker objects.
+
+Some of these Docker object includes:
+    - Docker containers
+    - Docker network 
+    - DOcker Volumnes 
+    - Docker Swarm Services 
+    - Docker Swarm Nodes 
+
+> docker service ls mywebserver
+
+> docker service inspect mywebserver 
+
+> docker service inspect mywebserver --pretty
+
+> docker node ls
+
+> docker node inspect igksno1e3077hpfjfwh5tgcfk --pretty 
+
+Adding Network and publishing ports to Swarm tasks
+--------------------------------------------------
+> docker service create --name mywebserver --replicas 2 nginx 
+
+> docker service ls
+
+> docker service ps mywebserver
+
+> docker service rm mywebserver
+
+> docker service create --name mywebserver --replicas 2 --publish 8080:80 nginx
+
+#To check all published ports
+> netstat -ntlp
+
+> ifconfig eth0
+
+> curl 192.168.0.18:8080
+
+#Overview of docker compose
+---------------------------
+* Compose is a tool for defining and running multi-container DOcker applications.
+* with compose, you use a YAML file to configure you application's services.
+* We can start all the services with single command - docker compose up
+* We can stop all the services with single command - docker compose down
+
+#to check if docker-compose is built correctly
+> docker-compose config 
+
+> docker-compose up -d 
+
+> docker-compose down
+
+----------------------------------------
+version: '3'
+services:
+  webserver:
+    image: nginx
+    ports:
+      - "8080:80"
+  database:
+    image: redis
+----------------------------------------
+version: '3.3'
+
+services:
+
+  wordpress:
+    image: wordpress
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: exampleuser
+      WORDPRESS_DB_PASSWORD: examplepass
+      WORDPRESS_DB_NAME: exampledb
+    volumes:
+      - wordpress:/var/www/html
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: exampledb
+      MYSQL_USER: exampleuser
+      MYSQL_PASSWORD: examplepass
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db:/var/lib/mysql
+
+volumes:
+  wordpress:
+  db:
+----------------------------------------
+Deploy Multi-Service Apps in Swarm
+----------------------------------
+***Comp;ose doesnot use swarm mode to deploy services to multiple nodes in a swarm. All containers will be 
+scheduled on the current node***
+
+* A specific web-application might have multiple containers that are required as part of the build 
+process
+
+* Whenever we make use of docker service, it is typically for a single container image.
+
+* The docker stack can be used to manage a multiple-service application
+
+* A stack is a group of interrelated services that share dependencies, and can be orchestrated and 
+ scaled together.
+
+* A stack can compose YAML file like the one that we define during Docker Compose.
+
+* We can define everything within the YAML file that we might define while creating a Docker Service.
+
+> docker stack deploy --compose-file docker-compose.yaml mydemo
+
+> docker stack rm mydemo
+
+# Locking Swarm cluster
+-----------------------
+* Swarm Cluster contains lot of sensitive information, which includes:
+    - TLS key used to encrypt communication among swarm node 
+    - Keys used to encrpyt and decrypt the Raft logs on disk
+* If your swarm is compromised and if data is stored in plain-text, and attacker can get all the sensitive 
+information.
+* Docker Lock allows us to have control over the keys.
+
+> cd /var/lib/docker
+
+> ls -l
+
+> cd swarm
+
+> cd certificates/
+
+> ls -l
+
+> cat swarm-node.key
+
+>  docker swarm update --autolock=true
+
+> systemctl restart docker
+
+> docker swarm unlock
+
+> docker swarm unlock-key
+
+#Troubleshoot Service deployments
+---------------------------------
+* A service may be configured in such a way that no node currently in the swarm can run its tasks.
+* In this case, the service remains in state pending
+* There are multiple reasons why service might go into pending state, some reasons are:
+
+* If all nodes are drained, and you create a service, it is pending until a node becomes available.
+
+* You can reserve a specific amount of memory for a service. If no node in the swarm has the required 
+amount of memory, the service remains in pending state until a node is available which can run its tasks.
+
+* You have imposed some kind of placement constraints.
+
+#create pending state error containers 
+> docker service create --name demotroubleshoot --constraints node.labels.region==1mumbai --replicas 3 nginx 
+
+#to check container pending state problem 
+> docker inspect 4kj3rffj39fk6
+
+#Mounting volumes via Swarm
+---------------------------
+> docker service create --name myservice --mount type=volume,source=myvolume,target=/mypath nginx 
+
+> docker volume ls
+
+> docker service exec -it 7c8eb51e016e bash
+
+#mypath mount inside container
+> ls -l /
+
+> cd /mypath/
+
+> touch test.txt 
+
+> cd /var/lib/docker/volumes/ 
+
+> cd myvolume/ 
+
+> cd _data/
+
+> docker ps 
+
+#Control service placement
+--------------------------
+* Swarm services provide a few different ways for you to control scale and placement of services on different nodes.
+
+- Replicated and Global Services
+- Resources Constraints [requirement of CPU and Memory]
+- Placement Constraints [only run on nodes with pci-compliance=true]
+- Placement Preferencees 
+
+#launch it in bangalore region 
+> docker service create --name myconstraints --constraint node.labels.region==blr --replicas 3 nginx
+
+#inspect the region of node2
+> docker node inspect node2
+
+> docker service rm myconstraints
+
+#Add a label to node3
+> docker node update --label-add region=mumbai c9dguptnxf5uwqfy7wuq9ousk
+
+#specify region as mumbai. It will launch in node 3
+> docker service create --name myconstraints --constraint node.labels.region==mumbai --replicas 3 nginx
+
+Overview of Overlay Networks
+----------------------------
+* The overlay network driver creates a distrubuted network among multiple Docker daemon hosts(node1, node2, node3, etcs). 
+* Overlay network allows containers connected to it to communicate securely.
+
+***nodes cant communicate with other nodes or across cluster. It is not possible with bridge or host network. 
+Overlay network needs to be configured in order for nodes to communicate with each other***
+
+> docker network ls 
+
+#create a overlay network 
+> docker network create --driver overlay my-network 
+
+> docker network ls
+
+> docker network inspect 
+
+#to remove a network 
+> docker network rm my-network
+
+> docker service create --name mynginx --network my-network --replicas 3 nginx
+
+> docker service ps mynginx
+
+> docker container inspect mynginx.3.r379nb8mew78noaan289ipuqo
+
+#Inspect second node && run in second node
+> docker container ls
+
+> docker container inspect mynginx.1.359p1f1hdu6zodff2xuqmemh5
+
+#run in node 1
+> docker container exec -it mynginx.3.r379nb8mew78noaan289ipuqo bash
+  - ping 10.0.1.3
+
+# Creating custom Overlay network for Swarm
+-------------------------------------------
+> docker network create --driver overlay mynetwork
+
+> docker service create --name myoverlay --network mynetwork --replicas 3 nginx
+
+# run it in node 2 and node 3 to find the ip address
+----------------------------------------------------
+> docker container inspect myoverlay.2.qvpbsemqqc2rl69o117gtx6w8
+
+#run it in node 1
+-----------------
+> docker container exec -it myoverlay.2.qvpbsemqqc2rl69o117gtx6w8 bash
+  - apt-get update && apt-get install iputils-ping
+
+  #ping both nodes 
+  - ping 10.0.1.3
+
+  - ping 10.0.1.5
+
+#Secure overlay network
+-----------------------
+* For the overlay networks, the contaners can be spreaded across multiple servers.
+
+* If the containers are communicatng with each other, it is recommended to secure the communication.
+
+* To enable encryption, when you create an overlay network pass the --opt encrypted flag:
+
+* docker network create --opt encrpyted --driver overlay my-overlay-secure-network
+
+* When you enable overlay encryption, DOcker creates IPSEC tunnels between all the nodes where tasks 
+are scheduled for services attached to the overlay network.
+ 
+* These tunnels also use the AES algorithm in GCM mode and manager nodes automatically rotates the keys 
+every 12 hours.
+
+* Overlay network encrpytion is not supported on windows. If a windows node attempts to connect to an 
+encrpyted overlay network, no error is detected but the node will not be able to communicate.
+
+#Creating swarm services using templates
+----------------------------------------
+#gives a combination to hostname 
+> docker service create --name nginxservice --hostname="{{.Node.Hostname}}-{{.Service.Name}}" nginx
+
+> docker container exec -it bash
+  - docker container exec -it nginxservice.1.vdfznr0m11j1zdb07669vup8g bash
+
+#Split brain problem 
+--------------------
+* Manager nodes has many responsiblity within swarm, these include:
+
+- maintaining cluster state
+- scheduling service 
+- serving swarm mode HTTP API endpoints
+
+* Using Raft implementation, the managers maintain a consistent internal state of the entire swarm and all the 
+services running on it.
+
+High availability in swarm
+--------------------------
+** Swarm comes with its own fault tolerance features.
+** Docker recommends you implement an odd number of nodes according to your organizations HA requirements.
+** An N manager cluster tolerates the loss of at most (N-1)/2 managers.
+  eg:
+  3 cluster nodes:
+    3-1 = 2
+    2/2 = 1
+  4 cluster nodes:
+    4-1 = 3
+    3/2 = 1.5 ~ 1(floor value)
+  
+#Join 3 managers
+----------------
+> docker swarm init --advertise-addr 10.0.0.4
+
+* if we want the manager node to perform only manager related tasks, then type below command
+
+#manager node id 
+> docker node update --availability drain fjepejxslopi3423200s190
+
+#Recovering from loosing the quorum
+-----------------------------------
+# run this in the manager node 2(Reachable)
+> docker swarm init --force-new-cluster --advertise-addr
+  - ifconfig eth0
+
+> docker swarm init --force-new-cluster --advertise-addr 206.189.139.221:2337
+
+#Docker system commands
+-----------------------
+#kernel version, total menory, CPUs, architectire, OStype
+> docker system info 
+
+#get real time events from you server 
+> docker system events
+
+# gives info about size of images, disk specific information related to containers, 
+information related to local volumes, build cache in a specific host  
+> docker system df 

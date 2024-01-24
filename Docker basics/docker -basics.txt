@@ -1,0 +1,190 @@
+#Images and containers
+-----------------------
+- Docker images is a file which contains all necessary dependencies, binaries and configuration files which 
+are required to run an applications.
+
+- Docker containers is basically a running instance an image.
+
+> docker pull nginx
+
+> docker image ls
+or
+> docker images
+
+> docker run -dt -p 80:80 nginx
+
+> ifconfig
+
+> docker ps
+
+> docker stop fervent_gauss
+
+> docker ps -a
+
+> docker start fervent_gauss
+
+#Container identification
+--------------------------
+When you create a docker container, it is assigned a universally unique identifier(UUID)
+It helps to identify a specific containers among others.
+
+By adding --name=meaningful_name argument during docker run command, we can specify our own name to the 
+containers.
+
+#give a name to container
+> docker run --name mynginx -d -p 8000:80 nginx
+
+> docker ps
+
+#start with name
+> docker stop mynginx
+
+#start with container id 
+> docker start 4d78ee14e188
+
+#Port binding
+-------------
+* By default Docker containers can make conenctions to the outside world, 
+but the outside world cannot commect to containers.
+
+* If we want our containers to accept incoming connections from the world, 
+you will jave to bind it to a host port.
+
+> docker inspect fervent_gauss
+
+> docker run -d -p 8000:80 --name mynginx nginx 
+
+#Attached and detached mode
+===========================
+* When we start a docker container, we need to decide if if we want to run in a default foreground 
+mode or the detach  ed mode.
+
+* You may want to use this if you want a container to run but do not want to view and follow 
+all its output.
+
+> docker run --name attached -p 8080:80 nginx 
+
+#-d : detached
+> docker run -d --name attached -p 8080:80 nginx 
+
+#docker 
+> docker ps -a 
+
+#list all of the containers present within my workstation
+> docker container ls -aq
+
+#stop all containers at once  
+> docker container stop $(docker container ls -aq)
+
+> docker container rm $(docker container ls -aq)
+
+#docker container remove
+> docker container rm mynginx1 -f 
+
+#https://docs.docker.com/engine/reference/commandline/cli/
+
+> docker container start mynginx
+
+# Docker container exec
+-----------------------
+- The docker container exec commands runs a new command in a running container
+
+- The command started using docker exec only runs while the container;s primary process (PID 1) is running,
+and it is not restarted if the container is restarted.
+
+> docker container run -d --name docker-exec nginx
+
+#get inside the container bash command line 
+> docker container exec -it docker-exec bash
+    - /etc/init.d/nginx status
+    - cd bin 
+    - ls -l
+    - apt-get update
+    - apt-get install net-tools
+    - netstat -ntlp
+
+eg:2
+#run a command while not being logically logged in the container 
+> docker container exec -it docker-exec netstat -ntlp
+
+> docker container exec -it silly_mcnulty sh
+
+#Importance of -it flag
+-----------------------
+* i - interactive flag to keep standard input(stdin) open even if not attached. 
+       Without this flag we cannot send specific command to the container stdin
+
+* t - gives tty. Gives nice representation to enter commands 
+
+eg:
+--
+#below command will only execute it once and come out 
+> docker container exec exec-container bash
+
+# below command will enter inside container but it will not display the tty 
+# [root@docker-demo ~]#
+
+> docker container exec -i exec-container bash
+
+> docker container exec -i -t exec-container bash
+or 
+> docker container exec -it exec-container bash
+
+#Default container command
+--------------------------
+When we started a new container from nginx image, however inside the container the nginx automatically
+started. We did not specify any command to start nginx and also it didnot start ant other binaries like bash, etc.
+
+> docker container rm 0c1d270a61cc 2258a2099f31 4d78ee14e188 f5d7637dc8b0 -f  
+
+> docker container run -d nginx
+
+* Whenever we run a container, a default command executes which typically runs as PID 1
+* This command can be defined while we are defining  the container image
+
+#Over riding default container command
+--------------------------------------
+#container exits after sleep executes for 20 seconds
+#Now sleep 20 have PID of 1. Once sleep period completes the container will automatically exit 
+docker container stop 
+> docker container run -d nginx sleep 20
+
+#Restart policies in docker
+---------------------------
+* By default, docker containers will not start when they exit or when docker daemon is restarted.
+* Docker providees restart policies to control whether your containers start automatically wen they 
+exit or when docker restarts.
+
+* Use --restart flag with docker command
+
+Flag            Description
+----            -----------
+no              Do not automatically restart the container
+on-failure      Restart the container if it exits due to an errorm which manifests as a non-zero exit
+                code
+unless-stopped  Restart the container unless it is explicitly stopped or Docker itself is stopped or 
+                restarted
+
+always          ALways restart the container if it stops
+
+#automatically start container if docker daemon gets restarted 
+> docker container run -d --restart unless-stopped nginx
+
+#Disk usage metrics for docker component 
+----------------------------------------
+#Gives the utilization related to these four types(Images, Containers, Local Volumes, Build cache) 
+> docker system df
+
+#check which container is consuming highest memory
+> docker system df -v 
+
+#Automatically delete container on exit
+---------------------------------------
+-d : detach mode 
+--rm : automatically remove/delete the container when it exits 
+
+#ping 10 times to google.com and exit 
+> docker container run -dt --rm --name testcontainer busybox ping -c10 google.com
+
+> docker log testcontainer
+

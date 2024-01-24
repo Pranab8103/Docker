@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Endpoints 
+metadata:
+  name: promethium-service
+subsets:
+  - addresses:
+      - ip: 10.244.0.6
+    ports:
+      - port: 80

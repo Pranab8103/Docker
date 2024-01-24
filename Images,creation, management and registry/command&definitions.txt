@@ -1,0 +1,386 @@
+Docker image
+------------
+* Docker can build images automatically by reading the instructions from a Dockerfile
+* A Docker file is a text document that contains all the commands a user could call on
+  the command line to assemble an image.
+
+eg:
+---
+FROM ubuntu
+RUN apt-get update
+RUN apt-get -y install nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+# Format of Dockerfile
+---------------------
+* A Dockerfile must start with a FROM instruction.
+* The FROM instruction specifies the Base Image from which you are building
+* The format of DOckerfile is similar to the below syntax:
+(FROM, RUN, CMD, LABEL, EXPOSE, ENV, ADD, COPY, ENTRYPOINT, VOLUME, USER, etc...)
+
+Creating a custom image
+-----------------------
+Create a docker file and paste in below commands
+
+FROM ubuntu
+RUN apt-get update
+RUN apt-get install -y nginx
+COPY index.nginx-debian.html /var/www/html
+CMD nginx -g 'daemon off;'
+
+# . represent the current path
+> docker build .
+
+> docker container run --name mycustomnginx -d -p 8001:80 d73fbee50fd8
+
+# COPY vs ADD instructions
+--------------------------
+* COPY and ADD are both Dockerfile instructions that serve similar purposes.
+* They let you copy files from a specific location into a Docker image.
+* COPY takes in a src and destination. It only lets you copy in a local file or directory from
+  your host
+* ADD lets you do that too, but it also suports 2 other sources.
+
+  - First, you can fetch the file from URL instead of a local file/directory.
+  - Secondly, you can extract a tar file from the source directly into the destination.
+
+***Using ADD to fetch packages from remote URLs is strongly discouraged; you should use curl or wget instead***
+eg:
+---
+#makes 3 image layers. Uses more space 
+ADD http://example.com/big.tar.zz /usr/src/things/
+RUN tar -xJf /usr/src/things/big.tar.zz -C  /usr/src/things
+RUN make -C /usr/src/things all
+
+#make 1 image layer
+RUN mkdir -p /usr/src/things \ 
+  http://example.com/big.tar.zz \
+  usr/src/things \
+  | tar -xJC /usr/src/things \
+  && make -C /usr/src/things all
+
+#############Create the dockerfile#############
+FROM busybox3
+COPY copy.txt /tmp
+ADD add.txt /tmp
+#ADD compress.tar.gz /tmp
+
+CMD ["sh"]
+
+> docker build -t demobusybox02 .
+
+> docker container run -dt --name demobusybox02 demobusybox02
+
+> docker container exec -it demobusybox02 sh
+  - cd /tmp
+  - ls
+
+#EXPOSE instructions
+--------------------
+* The EXPOSE instruction informs docker that the container listens on the specified network
+  ports at runtime
+* The EXPOSE instruction does not actually publish the port 
+* It functions as a type of documentation between the person who builds the image and the person 
+  who runs the container, about which ports are intended to be published.
+
+> docker container run -d --name nginx2 -p 80:80 nginx
+
+#output (any traffic which is coming from the internet on port 80 will be directed to the container port 80 and 
+        the services which are listening on this port would respond accordingly)
+0.0.0.0:80->80/tcp 
+
+eg of dockerfile which doesnot have EXPOSE command
+--------------------------------------------------
+FROM centos:6
+RUN yum -y install epel-release && -y install nginx
+CMD ["nginx","-g", "daemon off;"]
+
+* Here as the EXPOSE command is not given, the PORT column will be empty when docker ps command is executed.
+  It will be difficult for the person who is pulling the image to expose the container ports to running a container.
+  This is why EXPOSE command is used.
+
+#Dockerfile - HEALTHCHECK
+--------------------------
+* HEALTHCHECK instruction Docker allows us to tell the platform on how to test that our application is healthy.
+* When Docker starts a container, it monitors the process thatthe container runs. If the process ends, the container
+exits.
+* Thats just a basics check and does not necessarily tell the detail about the application.
+
+Dockerfile
+----------
+FROM busybox
+HEALTHCHECK --intervals=5s CMD ping -c 172.17.0.2
+--interval = DURATION(default:30s)
+--timeout = DURATION(default:30s)
+--start-period = DURATION(default:0s)
+-retries = N(default: 3)
+
+0 : success(the container is healthy and ready to use)
+1 : Failure(the container is not working correctly)
+2 : Reserved(do not use this exit code)
+
+Check every 5 minutes or so that a web-server is able to serve the site's main page within three
+seconds:
+
+HEALTHCHECK --interval-5m --timeout=3s \
+  CMD curl -f http:\\localhost/ || exit 1
+
+ENTRYPOINT instruction
+----------------------
+* The best use of ENTRYPOINT is to set the image's main command
+* ENTRYPOINT doesnot allow you to override the command(CMD can be used to override commands)
+* It is important to understand distinction between CMD and ENTRYPOINT
+
+Dockerfile
+----------
+FROM busybox
+ENTRYPOINT ["/bin/ping"]
+#CMD ["sh"]
+ 
+> docker build -t base02 .
+
+> docker container run -d -t --name base02 base02 -c google.com 
+
+#Here the command will be /bin/ping -c google.com(/bin/ping cannot be overridden)
+
+WORKDIR instruction
+--------------------
+* The WORKDIR instruction sets the working directory for any RUN, CMD, ENTRYPOINT, COPY and
+  ADD instruction that follows it in the Dockerfile.
+* The WORKDIR instruction can be used multiple times in a Dockerfile.
+
+eg:
+  FROM busybox
+  RUN mkdir /root/demo/context1/context2 
+  WORKDIR /root/demo 
+  WORKDIR context1
+  WORKDIR context2
+  RUN touch file01.txt 
+  CMD ["/bin/sh"]
+
+  Working directory will be ~/demo/context1/context2
+
+Dockerfile
+----------
+FROM busybox
+RUN mkdir /root/demo 
+WORKDIR /root/demo 
+RUN touch file01.txt 
+CMD ["/bin/sh"]
+
+> docker build -t workdir-demo .
+> docker container run -dt --name workdir-demo workdir-demo sh
+> docker container exec -it workdir-demo sh
+  - ls (file01.txt will be visible in this folder)
+#TTY console will direct it to this working directory path ~/demo#.  
+
+#ENV instruction
+----------------
+* The ENV instruction sets the environment variable <key> to the value <value>
+* You can use te -e, --env,and --env-file flags to set simple environment variables in the container you are running,
+or overwrite variable that are defined in the DOcker file of the image you are running.
+
+eg:
+-- 
+ENV NGINX 1.2
+
+#$NGINX will be replaced by 1.2
+RUN curl -sl http://example.com/web-$NGINX.tar.xz
+RUN tar -xzvf web-$NGINX.tar.xz
+
+Dockerfile
+----------
+FROM busybox
+
+ENV NGINX 1.2
+
+RUN touch web-$NGINX.txt 
+
+CMD ["/bin/sh"]
+
+> docker build -t image-env .
+> docker container run -dt --rm --name image-env image-env  
+> docker container exec -it  image-env sh 
+
+eg:2
+----
+> docker container run -dt  --name env02 --env USER=ADMINUSER busybox sh
+> docker container exec -it sh
+  - echo $USER
+
+#image tagging
+
+#tag image while building it  
+> docker build -t .
+
+#tag already created Image
+> docker tag eea7b3dcba7e demo-nginx:v2
+
+#Docker commit 
+--------------
+* Whenever you make changes inside the container, it can be useful to commit a 
+container's file change or settings into a new image
+
+* By default, the container being committed and its processes will be paused while the image is committed
+
+#Syntax
+-------
+> docker container commit CONTAINER_ID myimage01
+
+> docker container run -dt --rm --name busybox busybox
+
+> docker container exec -it busybox sh
+  - touch change1.txt 
+
+> docker container commit busybox busy-box-modified-01
+
+#change1.txt will be present
+> docker container run -dt --name busybox-custom busybox-modified-01
+
+docker container commit --change='CMD ["ash"]' busybox 
+
+> docker container -dt --name busybox-modified-02 0948efd3789
+
+* The change optioon will apply Dockerfile instructions to the image that is created
+Supported Dockerfile instructions:
+
+* CMD | ENTRYPOINT | ENV | EXPOSE 
+* LABEL | ONBUILD | USER | VOLUME | WORKDIR 
+
+Understanding layers
+--------------------
+* A docker image is built up fro a series of layers. 
+* Each layers represents an instruction in the image's Dockerfile.
+* The major difference between a container and an image is the top writable layer
+* All writes to the container that add new or modify existing data are stored in this writable layers.
+
+> docker history nginx
+
+Eg:
+---
+FROM ubuntu
+RUN dd if=/dev/zero of=/root/file1.txt bs=1M count=100
+RUN dd if=/dev/zero of=/root/file2.txt bs=1M count=100
+RUN rm -f /root/file1.txt
+RUN rm -f /root/file2.txt
+
+> docker history demohistory
+
+#Docker CLI
+------------
+* Docker CLI can be used to manage various aspects related to Docker Images which includes building, removing,
+tagging and others.
+
+* We should be familiar with the docker image child-commands 
+
+Child commands
+--------------
+- docker image build
+- docker image history 
+- docker image import 
+- docker image inspect 
+- docker image load 
+- docker image ls
+- docker image prune 
+- docker image pull 
+- docker image push 
+- docker image rm
+- docker image save 
+- docker image tag
+
+> docker image --help
+
+#docker image output filtering
+------------------------------
+> docker image inspect nginx --format='{{.Id}}'
+> docker image inspect nginx --format='{{.ContainerConfig}}'
+
+#to get the key also
+> docker image inspect nginx --format='{{json .ContainerConfig}}'
+
+> docker image inspect nginx --format='{{.ContainerConfig.Hostname}}'
+
+# Docker Image prune
+-------------------
+* docker image prune commands allows us to clean up unused images
+* By default, the above command will only clean up dangling images
+* Dangling Images = Image without Tags and Image not referenced by any container 
+
+> docker images
+
+> docker image prune
+
+#removes all the images which doesnot have a container associated with them 
+> docker image prune -a 
+
+#Flattening docker images
+-------------------------
+* In a generic scenario, the more layers an image has, the more the size of the image
+* Some of the image size goes from 5GB to 10GB.
+* Flattening an image to single layer can help reduce the overall size of the image 
+
+> docker container run -dt --name ubuntu ubuntu  
+
+> docker export myubuntu > myubuntudemo.tar
+
+# Docker registry
+-----------------
+> A registry is a stateless, highly scalable server side application that stores and lets you distribute 
+Docker images
+
+> Docker hub is simplest example tha tall of is must have used.
+THere are various types of registry available, which includes:
+
+- Docker registry
+- Docker Trusted registry
+- Private repository 
+- Docker Hub 
+
+> docker run -d -p 5000:5000 --restart always --name registry registry:2
+
+> docker tag ubuntu:latest localhost:5000/myubuntu
+
+> docker rmi localhost:5000/myubuntu
+
+#push image to docker repository
+--------------------------------
+
+> docker login 
+
+> docker tag nginx pranab3018/busybox:v1 
+
+> docker push pranab3018/busybox:v1
+
+#docker search command
+-----------------------
+> docker search nginx --limit 5
+
+> docker search nginx --filter "is-official=true"
+
+#Moving images across host
+--------------------------
+* Docker save command will save one or more images to a tar archive
+
+> docker save busybox > busybox.tar
+
+> docker load < busybox.tar
+
+Dockerfile
+----------
+FROM busybox 
+RUN touch custom.txt 
+CMD ["/bin/sh"]
+
+> docker build -t myapp .
+
+> docker save myapp > myapp.tar 
+
+> docker load < myapp.tar
+
+Build cache
+-----------
+- Docker creates container images using layers.
+- Every command that is found in a dockerfile creates a new layer
+- Docker uses a layer cache to optimize the process of building Docker images and make it faster
+
+* If the cache cant be used for a particular layer, all subsequent layers wont be loaded from the cache

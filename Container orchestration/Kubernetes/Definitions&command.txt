@@ -1,0 +1,814 @@
+Container orchestration 
+-----------------------
+Container orchestration is all about managing the life cycles of containers, especisally in large, dynamic 
+environments.
+
+Overview of kubectl
+-------------------
+* The kubernetes command-line tool, kubectl, allows you to run commands against kubernetes clusters.
+
+* You can use kubectl to deploy applications, inspect and manage cluster resource, and view logs.
+
+* To connect to the kubernetes Master ,there are 2 important data which kubectl needs:
+    - DNS/IP of the cluster
+    - Authentication Credentials
+
+> minikube start --driver=hyperv		#setups a VM and start a cluster with master node 
+
+> minikube delete		#delete existing cluster
+
+> minikube status 		#displays status of existing cluster
+
+> minikube dashboard
+
+#get nodes
+> kubectl get nodes 
+
+Container creation
+------------------
+#docker command 
+> docker run --name mywebserver nginx
+
+#Kubectl command:
+> kubectl run mywebserver --image=nginx 
+
+#in high level terms a container is referred as pods 
+> kubectl get pods
+
+Connect to a container 
+----------------------
+#docker command
+---------------
+> docker exec -it mywebserver bash
+
+kubectl command
+---------------
+# -- is separation and after -- the command runs in kubernetes pod  
+> kubectl exec -it mywebserver -- bash
+
+> kubectl exec -it mywebserver -- ls -l /
+
+#delete pod
+-----------
+> kubectl delete pod mywebserver
+
+kubernetes PODS 
+---------------
+* A pod in kubernetes represents a group of one or more application containers, and some shared resources
+for those containers.
+
+* Many application might have more than one container which are tightly coupled and in one-to-one relationship
+
+* A Pod always runs on a Node.
+
+* A Node is worker machine in Kubernetes.
+
+* Each Node is managed by the Master.
+
+* A Node can have multiple pods.
+
+- docker run -dt --name myweb01 function01
+- docker run -dt --name myapp01 function02 
+
+#Dealing with Tightly Coupled Application 
+-----------------------------------------
+* Containers within a Pod share an IP address and port space, and can find each other via localhost.
+
+* Kubernetes Objects is basically a record of intent that you pass on to the kubernetes cluster. Once you 
+create the object, the kubernetes system will constantly work to ensure that object exists.
+
+Approach to configure an Objects
+--------------------------------
+There are various ways in which we can configure an kubernetes Object.
+    - First approach is through the kubectl commands.
+    - Second approach is through configuration file written in YAML.
+
+Importance of YAML
+------------------
+* YAML is a human-readable data-serialization lanuage.
+
+Benefits of configuration file
+------------------------------
+* Integrates well with change review processes.
+* Provides the source of record on twhat is live within the kubernetes cluster.
+* Easier to troubleshoot chanes with version control.
+
+Approach to configure an object
+-------------------------------
+* There are various ways in which we can conigure a Kubernets object. 
+    - First approach is through the kubectl commands.
+    - Second approach is through file written in YAML
+
+Understanding important fields
+------------------------------
+* apiVersion: Version of API 
+* kind: kind of object you want to create 
+* metadata name: Name of object that uniquely identifies it 
+* spec: Desired state of the object 
+
+> kubectl api-resources
+
+> kubectl explain pods
+
+> kubectl apply -f pod.yml
+
+> kubectl delete -f newpod.yml 
+
+Intro to Labels and selectors
+-----------------------------
+* Labels are key/value pairs that are attached to Objects, such as pods. 
+
+* Selectors allows us to filter objects based on labels.
+
+Example:
+--------
+Show me all the objects which has label where env:prod 
+
+Kubernetes Perspective
+----------------------
+There can be multiple objects within a Kubernetes cluster 
+
+Some of the objects are as follows:
+
+- Pods 
+- Services 
+- Secrets 
+- Namespaces 
+- Deployments 
+- Daemonsets
+
+label eg 
+--------
+> kubectl get pods -l env=dev 
+
+> kubectl describe pod nginxwebserver 
+
+Implementing labels and selectors
+---------------------------------
+> kubectl run pod-1 --image=nginx
+
+> kubectl run pod-2 --image=nginx
+
+> kubectl run pod-3 --image=nginx
+
+> kubectl get pods --show-labels 
+
+label the pods
+--------------
+> kubectl label pod pod-1 env=dev  
+
+> kubectl label pod pod-2 env=stage  
+
+> kubectl label pod pod-3 env=prod
+
+> kubectl get pods --show-labels 
+
+selectors
+---------
+> kubectl get pods -l env=dev
+
+> kubectl get pods -l env=prod
+
+> kubectl get pods -l env!=dev
+
+> kubectl label --help
+
+# Update pod 'foo' with the label 'unhealthy' and the value 'true'
+> kubectl label pods foo unhealthy=true
+
+# Update pod 'foo' with the label 'status' and the value 'unhealthy', overwriting any existing value
+> kubectl label --overwrite pods foo status=unhealthy
+
+# Update all pods in the namespace
+> kubectl label pods --all status=unhealthy
+
+# Update pod 'foo' only if the resource is unchanged from version 1
+> kubectl label pods foo status=unhealthy --resource-version=1
+
+# Update pod 'foo' by removing a label named 'bar' if it exists
+# Does not require the --overwrite flag
+> kubectl label pods foo bar-
+
+# remove pod labels 
+> kubectl label pod pod-1 env- 
+
+> kubectl get pods --show-labels 
+
+> kubectl run nginx --image=nginx --dry-run=client -o yaml > label-pod.yaml
+
+> kubectl label pods --all status=running
+
+> kubectl get pods --show-labels
+
+#delete all pods
+> kubectl delete pods --all
+
+#Overview of Kubernetes ReplicaSets
+-----------------------------------
+* A replicaSet purpose is to maintain a stable set of relica pods running at any given time.
+
+Desired State: The state of pods which is desired 
+Current State: The actual state of pods which are running 
+
+> kubectl get replicaset
+
+#Creating ReplicaSet
+--------------------
+> kubectl get replicaSet
+or
+> kubectl get rs 
+
+> kubectl get pods
+
+> kubectl get pods --show-labels
+
+> kubectl delete rs promethium-replicaset
+
+#===========================================
+spec:
+  # modify replicas according to your case
+  replicas: 3
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+
+**label of pod and match label must be the same otherwise it will throw an error. It needs to
+be same because kubernetes engine will not be able to find the replicaSet which needs to be scaled if names are 
+different. And might scale a different replicaset all together.
+#============================================
+
+Deployments
+-----------
+Deployments provides replication functionality with the help if ReplicaSets, along with various additional capability 
+like rolling out of changes, rollback changes if required.
+
+Benefits of Deployments - Rollout changes
+-----------------------------------------
+* We can easily rollout new updates to our application using deployments.
+* Deployments will perform update in rollout manner to ensure that your app is not down.
+* Sometimes, you may want to rollback a Deployment; for example, when the Deployment is not stable, 
+such as crash looping.
+
+#present in deployment folder
+> kubectl apply -f deployments.yaml 
+
+> kubectl get deployments
+
+> kubectl get rs
+
+#change nginx image version 1:17.3
+ spec:
+      containers:
+      - name: php-redis
+        image: nginx:1.17.3
+
+> kubectl apply -f deployments.yaml
+
+#give you info about deployment
+> kubectl describe deployment promethium-deployment
+
+#74d967cd74 old deployment
+#695bdc6c58 new deployment
+
+ Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  14m    deployment-controller  Scaled up replica set promethium-deployment-74d967cd74 to 5
+  Normal  ScalingReplicaSet  6m16s  deployment-controller  Scaled up replica set promethium-deployment-695bdc6c58 to 2
+  Normal  ScalingReplicaSet  6m16s  deployment-controller  Scaled down replica set promethium-deployment-74d967cd74 to 4 from 5 
+  Normal  ScalingReplicaSet  6m16s  deployment-controller  Scaled up replica set promethium-deployment-695bdc6c58 to 3 from 2   
+  Normal  ScalingReplicaSet  2m30s  deployment-controller  Scaled down replica set promethium-deployment-74d967cd74 to 3 from 4 
+  Normal  ScalingReplicaSet  2m30s  deployment-controller  Scaled up replica set promethium-deployment-695bdc6c58 to 4 from 3   
+  Normal  ScalingReplicaSet  2m21s  deployment-controller  Scaled down replica set promethium-deployment-74d967cd74 to 2 from 3 
+  Normal  ScalingReplicaSet  2m21s  deployment-controller  Scaled up replica set promethium-deployment-695bdc6c58 to 5 from 4   
+  Normal  ScalingReplicaSet  2m18s  deployment-controller  Scaled down replica set promethium-deployment-74d967cd74 to 1 from 2 
+  Normal  ScalingReplicaSet  2m12s  deployment-controller  (combined from similar events): Scaled down replica set promethium-de
+
+> kubectl rollout history deployment.v1.apps/promethium-deployment
+
+#old nginx image 
+> kubectl rollout history deployment.v1.apps/promethium-deployment --revision 1
+
+#new nginx image  
+> kubectl rollout history deployment.v1.apps/promethium-deployment --revision 2
+
+* Deployment ensures that only a certain no of pods are down while they are being updated.
+* By default, it ensures that at least 25% of the desired number of pods are up (25% max unavailable)
+* Deployments keep the history of revision which had been made.
+
+#deleting deployment after lab 
+> kubectl delete deployment promethium-deployment
+
+maxSurge and maxUnavailable
+---------------------------
+* While performing a rolling update, there are 2 important configuration to know:
+
+* maxSurge: Maximum no of PODS that can be scheduled above original no of pods.
+
+* maxUnavailable: Maximum no of pods that can be unavailable during the update.
+
+* You can define the maxSurge and maxUnavailable in both the numeric and % terms.
+eg  
+--
+> kubectl create deployment demo-deployment --image=nginx --replicas 3 
+
+> kubectl get deloyments 
+
+> kubectl get deployment demo-deployment -o yaml > Maxsurge-maxunavailable.yaml
+
+#lets change image from nginx to apache
+> kubectl set image deployment demo-deployment nginx=httpd
+
+#Now lets say our worker node only has capacity to run atmost of 3 pods and nothing more than that
+#In this case we will habve to update the maxSurge to 0.
+
+> kubectl edit deployment demo-deployment
+
+#lets revert back the changes from apache to nginx
+> kubectl set image deployment demo-deployment nginx=nginx
+
+Kubernetes Secrets
+------------------
+A Secret is an object that contains a small amount of sensitive data such as a password, a token or a key
+    - Allows customers to store secrets centrally to reduce risk of exposure.
+    - Stored in ETCD database
+
+Syntax
+------
+kubectl create secret [TYPE][NAME][DATA]
+
+Elaborating Type:
+    - Generic:
+        * File (--from-file)
+        * directory 
+        * literal value 
+    - Docker Registry 
+    - TLS 
+
+Use-case
+--------
+* AppA runs on a pod and it needs to connect to a MySQL DB to start working properly 
+
+* Many times you will find that developer have hardcoded credentials within their container image.
+
+* There are multiple risks of hard coding credentials:
+    - Anyone having access to the container repository can easily fetch the credentials 
+    - Developer needs to have credentials of production systems.
+    - Update of credentials will lead to new docker image being built
+
+> kubectl create secret generic firstsecret --from-literal=db=mypassword123
+
+> kubectl get secret
+
+> kubectl get secret firstsecret -o yaml
+
+#get secret from file
+> kubectl create secret generic filesecret --from-file=./secret.txt 
+
+Mounting secret in containers 
+-----------------------------
+* Once a secret is created, it is necessary to make it available to containers in a pod.
+
+There are 2 approaches to achieve this:
+- Volumes 
+- Environment Variables
+
+# secret-deloyment.yaml present in secret folder 
+> kubectl apply -f secret-deployment.yaml
+
+> kubectl exec -it secretmount bash
+    - cd etc/foo
+    - ls 
+
+Understanding ConfigMaps
+------------------------
+ConfigMaps allows to centrally store configuration data.
+Eg: lets say we have value of app.cpu = 1. tomorrow we want to increase the app.cpu=4, if this 
+configuration file were inside a container then we would have to rebuild the entire image. This 
+method of centrally storing the data is called ConfigMaps. We can dynamically change the values.
+Rebuilding image is not required.
+
+Syntax
+------
+kubectl create configmap [NAME][DATA-SOURCE]
+    - File
+    - directory 
+    - literal value
+
+> kubectl create configmap dev-config --from-literal=app.mem=2048m
+
+> kubectl get configmap
+
+> kubectl get configmap -o yaml
+
+#dev.propertoes is present in configmap folder 
+> kubectl create configmap dev-properties --from-file=dev.properties
+
+> kubectl get configmap dev-properties -o yaml
+
+#config yaml present in configmaps folder 
+> kubectl apply -f pod-configmap.yaml 
+
+> kubectl exec -it configmap-pod bash
+    - cd /etc/config 
+    - ls 
+    - cat dev.properties
+
+Overview of Kubernetes service
+------------------------------
+* Kubernetes Service can act as an abstraction which can provide  a single IP address and 
+DNS through which pods can be accessed.
+* This layer of abstraction allowws us to perform lot of operations like load balancing, scaling 
+of pods and others.
+
+# -o wide gives ip addresses assicoated with all the pods  
+> kubectl get pods -o wide  
+
+Types of kubernetes Services:
+- NodePort 
+- ClusterIP
+- LoadBalancer
+- ExternalName
+
+Creating Service and endpoint 
+-----------------------------
+* Service is a gateway that distributes the incoming traffic between its endpoints.
+* Endpoints are the underlying PODs to which the traffic will be routed to.
+
+#Step 1 : Creating backend PODS 
+-------------------------------
+> kubectl run backend-pod1 --image=nginx
+> kubectl run backend-pod2 --image=nginx
+
+#Step 2: Creating frontend PODS
+------------------------------
+> kubectl run frontend-pod --image=ubuntu --command -- sleep 3600 
+
+#Step 3: Test connection between frontend and backend pods
+----------------------------------------------------------
+> kubectl get pods -o wide
+> kubectl exec -it frontend-pod -- bash 
+    - curl
+    - apt-get update && apt-get -y install curl
+    - curl 10.244.0.115
+
+#Step 4: Create a new Service
+-----------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  ports:
+-   port: 8080
+    targetPort: 80
+
+> kubectl apply -f services.yaml
+
+> kubectl describe service promethium-service
+
+#try to see if there any response from backend. Ideally we should not get any response because 
+#service doesnot have and endpoints yet 
+
+> kubectl exec -it frontend-pod -- bash 
+    - curl 10.111.98.160:8080
+
+#Step 5: Associate Endpoints with Service
+-----------------------------------------
+apiVersion: v1
+kind: Endpoints 
+metadata:
+  name: promethium-service
+subsets:
+  - addresses:
+      - ip: 10.244.0.3
+    ports:
+      - port: 80
+
+> kubectl apply -f endpoint.yaml
+
+#in endpoint section we will see ip address of backend pod 1
+> kubectl describe service promethium-service
+
+> kubectl exec -it frontend-pod -- bash
+    - curl 10.111.98.160:8080
+
+#Step 7: delete all the resources created
+> kubectl delete service promethium-service 
+> kubectl delete endpoints promethium-service
+> kubectl delete pod backend-pod1
+> kubectl delete pod backend-pod2
+> kubectl delete pod frontend-pod
+
+#Service Type - ClusterIP 
+-------------------------
+* Whenever service type is ClusterIP, an internal cluster IP address is assigned to the service.
+* Since an internal cluster IP is assigned, it can only be reachable from within the cluster.
+* This is a default Service Type
+
+#Using selector for Service Endpoints
+-------------------------------------
+* At this stage, we are manually defining the IP address of the PODS in endpoints(YAML).
+* If there are 500 PODS, we will have to manually define each IP in endpoint
+* Kubernetes allows us to define the list of labels of PODS that needs to be added as part of 
+Endpoints.
+* All PODS that matches that label will be added. 
+
+#Step 1: Create nginx deployment with 3 replicas 
+------------------------------------------------
+> kubectl apply -f selector-demoDeployment.yaml
+
+#check the labels associated with the pods 
+> kubectl get pods --show-labels
+
+#Step 2: Create Service  
+------------------------
+> kubectl apply -f selector-demoService.yaml
+
+#Step 3: Verify endpoints in Services
+-------------------------------------
+#Verify endpoints in Service
+> kubectl describe service promethium-service-selector
+
+#Step 4: Scale Deployments
+--------------------------
+> kubectl scale deployment/nginx-deployment --replicas=10
+
+> kubectl get pods --show-labels
+
+> kubectl describe service promethium-service-selector 
+
+> kubectl get endpoints
+
+> kubectl describe service promethium-service-selector
+
+Step 5: Create a New Manual POD and Add a Label
+-----------------------------------------------
+> kubectl run manual-pod --image=nginx
+
+> kubectl label pods manual-pod app=nginx
+
+Step 7: Verify Endpoints in Service
+-----------------------------------
+> kubectl describe service promethium-service-selector
+
+> kubectl describe endpoints promethium-service-selector
+
+Step 8: Delete Created Resources
+--------------------------------
+> kubectl delete service promethium-service-selector
+
+> kubectl delete -f demo-deployment.yaml
+
+> kubectl delete deployment nginx-deployment
+
+> kubectl delete pod manual-pod
+
+#ServiceType: NodePort
+----------------------
+* NodePort exposes the Service on each Nodes IP at a static port(NodePort)
+* You will be able to contact the NodePort Service, from outside the cluster, by requesting <WorkerIP>:<NodePort>
+* If servicetype is NodePort, then Kubernetes will allocate a port (default: 30000-32767) on every worker node.
+
+Step1: Create a POD with label
+------------------------------
+> kubectl run nodeport-pod --labels="type=publicpod" --image=nginx
+
+> kubectl get pods --show-labels 
+
+Step 2: Create NodePort service
+-------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+   name: promethium-nodeport-service
+spec:
+    selector:
+      type: publicpod
+    type: NodePort 
+    ports:
+    - port: 80
+      targetPort: 80
+
+> kubectl apply -f nodeport.yaml
+
+
+Step 3: Verify NodePort
+-----------------------
+> kubectl get service 
+
+#get the external ip of cluster and paste in web browser with port 31392
+> kubectl get nodes -o wide
+
+#Kubernetes Network Model
+-------------------------
+* Kubernetes was build to run on distributed systems where there can be hundred of worker nodes in which Pods 
+would be running 
+* This makes networking a very important part component and with the Understanding of kubernetes networking model,
+it will allow administrator to properly run, monitor as well as trougleshoot applications in K8s cluster. 
+
+Overview of the networking model 
+--------------------------------
+Kubernetes imposes the following fundamentals requirements on any networking implementation:
+
+* pods on a node can communicate with all pods on all nodes without additional NAT 
+* all Nodes can communicate with all POds without NAT 
+* the IP that a Pod sees itself as is the same IP that others see it as 
+
+Challenges & solutions 
+----------------------
+Based on the constraints set, there are four different networking challenges that neeeds to be solved:
+
+- Container-to-Container Networking 
+  * Primarily happens inside a pod 
+  * PODS can container group of containers with the same IP address.
+  * Communication between the containers inside pods happend via localhost 
+
+- Pod-to-Pod Networking 
+  
+- Pod-to-Service Networking 
+ * Kubernetes Service can act as an abstraction which can provide a single IP address and DNS through which 
+   pods can be accessed.
+ * Endpoints tracks the IP address of the objects that service can send traffic to.
+
+- Internet-to-Service Networking 
+* Kubernetes Ingress is a collection of routing rules which governs how external users access the service running 
+  within the kubernetes cluster.
+
+Understanding Liveness Probe
+----------------------------
+* Many applications running for long periods of time eventually transition to broken states, and cannot recover except by
+being restarted.
+
+* Kubernetes provides liveness probe to detect and remedy such situations
+
+apiVersion: v1
+kind: Pod 
+metadata: 
+  name: liveness 
+spec: 
+  containers:
+  - name: liveness 
+    image: ubuntu
+    tty: true
+    livenessProbe:
+      exec:
+        command:
+        - service
+        - nginx 
+        - state 
+      initialDelaySeconds: 20
+      PeriodSeconds: 5
+    
+> kubectl run -it ubuntu --image=ubuntu
+
+> kubectl exec -it ubuntu -- bash
+
+> kubectl exec -it ubuntu service nginx status
+
+> kubectl exec -it ubuntu ls /tmp
+
+#Types of probes
+----------------
+There are 3 types of probe which can be used with Liveness 
+  - HTTP 
+  - Command 
+  - TCP 
+
+  In this demo we had taken an example based on command. 
+
+
+Understanding Readiness Probe
+-----------------------------
+* It can happen that an application is running but temporarily unavailable to server traffic 
+* For example, application is running but it is still loading it's large configuration files from external 
+  vendor
+* In such-case, we don't want to kill the container however we also do not want it to serve the traffic.
+
+
+******LoadBalancer will not route traffic until the pod is in ready state******
+kind: Pod 
+metadata: 
+  name: liveness 
+spec: 
+  containers:
+  - name: liveness 
+    image: ubuntu
+    tty: true
+    readinessProbe:
+      exec: 
+        command:
+        - cat 
+        - /tmp/healthy
+      
+      initialDelaySeconds: 5 
+      periodSeconds: 5
+
+> kubectl apply -f readinessprobe.yaml 
+
+# it will mark the pod as not ready 
+> kubectl get pods 
+
+#create one healthy named file  
+> kybectl exec -it readiness touch /tmp/healthy 
+
+#not after sometime pod will come under ready status 
+> kubectl get pods 
+
+> kubectl exec -it readiness rm /tmp/healthy
+
+# again it will mark the pod as not ready, since file has been deleted  
+> kubectl get pods 
+
+#Understanding Daemonsets
+-------------------------
+Use case
+--------
+Lets say that we have 3 nodes and we want to run a single copy of pod in every node 
+
+* We cannot create a deployment with 3 replicaset because it doesnot ensures to run all the pod across the nodes
+Sometimes what happen is kubernetes can run multiple pods in same node
+
+* In this case we can ise Daemonset
+
+As node are added to the cluster, Pods are added to them
+
+Taints and tolerations
+----------------------
+Taints
+------
+* Taints are used to repel the pods to be scheduled from a specific nodes.
+
+tolerations
+-----------
+* In order to enter the taint worker node, you need a special pass
+* This pass is called toleration 
+
+> kubectl get nodes 
+
+> kubectl describe node minikube
+
+#taint node minikube 
+> kubectl taint nodes minikube key=value:Noschedule 
+
+> kubectl run nginx --image=nginx --replicas=5
+
+# Untaint node minikube 
+> kubectl taint nodes minikube key=value:Noschedule- 
+
+#Requests and limits in kubernetes 
+----------------------------------
+* If you schedule a large application in a node which has limited resource, then it will soon lead to OOM
+or other and will lead to downtime.
+
+* Requests and Limits are 2 ways in which we can control the amount of resource that can be assigned to a pod.
+
+- Requests: Guaranteed for a pod to get 
+- Limits: Makes sure that container does not take node resources above a specific value.
+
+> kubectl get nodes 
+
+> kubectl describe node minikube
+
+* Kubernetes scheduler decides the ideal node to run the pod depending on the requests and
+limits 
+
+* If your POD requires 8GB of RAM, however there are no node within your cluster which has 8GB RAM, then your 
+pod will never get scheduled
+
+#This will fail because we donot have a node in my cluste(minikube) which has 64 GB memory and specified limit is less 
+# than guaranteed limit   
+> kubectl apply -f request-limit.yaml 
+
+#Network policies
+-----------------
+* By default, pods are non-isolated; they accept traffic from any source
+
+Ex:
+---
+* Pod1 can communicate with Pod2.
+* Pod1 in namespace DEV can communicate with Pod 3 in namespace Staging
+
+A network policy is a specification of how groups of pods are allowed to communicate with each other 
+and other network endpoints.
+
+Example:
+--------
+* POD1 can only communicate with Pod 5 in the same namespace.
+* POD2 can only communicate with POd 10 residing in namespace Security.
+* No one should be able to communicate with Pod3.
+
+> kubectl run -it pod01 --image=busybox
+
+> kubectl run -it pod02 --image=busybox
+  
+> kubectl exec -it pod01 -- sh
+  - ifconfig 
+
+#by default we will be able to ping pod1 as default Communication is allowed 
+> kubectl exec -it pod02 -- sh
+  - ping 10.244.0.6
+

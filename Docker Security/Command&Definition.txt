@@ -1,0 +1,139 @@
+* Docker container can have security vulnerabilities 
+* If blindly pulled and if containers are running in production, it can result in breach
+
+Overview of Security Scanning in DTR 
+------------------------------------
+* DTR allows us to perform security scan for the containers.
+* These scan can perform "On Push" or even manually
+
+Overview of DTR Webhooks
+------------------------
+* You can configure DTR to automatically post event notifications to a webhook URL of your choosing 
+
+Overview of namespaces
+----------------------
+* Docker uses a technology called namespaces to provide the isolated work space called the container 
+
+* These namespaces provide a layer of isolation. Each aspect of a container runs in a separate namespace 
+and its access is limited to that namespace.
+
+> docker container run -dt --name mybusybox busybox sh
+
+> docker container ps
+
+> docker container exec -it mybusybox sh
+    -ps -ef
+
+#Currently Linux provides six different types of namespaces as follows:
+    - Inter-Process Communication(IPC)
+    - Process(pid)
+    - Network(net)
+    - UserID(user)
+    - Mount(mnt)
+    - UTS
+
+#Control Groups
+---------------
+* Control Groups(cgroups) is a Linux kernel feature that limits, accounts for, and isolates the resource 
+usage(CPU, memory, diskI/O,network, etc) of a collection of proceses.
+
+> docker container run --help
+
+> docker container run -dt --name mymemory01 -m 256m busybox sh 
+
+> docker container exec -it mymemory01 sh
+    #get container limit of memory 
+
+    - cat /sys/fs/cgoup/memory/
+    - cat /sys/fs/cgoup/memory/memory.limit_in_bytes
+
+> docker container run -d --name constraint01 --cpu=1.5 busybox sh 
+
+Reservation vs limit
+--------------------
+* By default, a container has no resource constraints and can use as much of a given resource
+as the host's kernel scheduler allows.
+
+* It is important not to allow a container to consume too much of the host machine's memory.
+
+* On Linux hosts, if the kernel detects that there is not enough memory to perform important system 
+functions, it throws an Out Of Memory Exception, an d starts killing processes to free up memory
+
+* Limit: imposes an upper limit to the amount of memory that can potentially be used by a Docker container.
+
+* Reservations, on the other hand, is less rigid.
+
+* When the system is running low on memory and there is contention, reservation tries to bring the container's
+memory consumption at or below the reservation limit.
+
+> docker run --help
+
+-m, --memory bytes                   Memory limit
+    --memory-reservation bytes       Memory soft limit
+
+#soft limit : container can use memory beyond 250 mb if required 
+> docker container run -d --name container01 --memory-reservation 250m busybox sh 
+
+#hard limit : container cannot use memory beyond 250 mb 
+> docker container run -d --name container01 -m 500m --memory-reservation 250m busybox sh 
+
+Swarm MTLS(mutual Transport Layer Security)
+-------------------------------------------
+* The nodes in a swarm use Transport Layer Security(TLS) to authenticate, authorize, and encrypt the 
+communications with other nodes in the swarm.
+
+* By default, the manager node generates a new root Certificate Authority(CA) along with a key pair, 
+which are used to secure communications with other nodes that join the swarm.
+
+* You can specify your own externally-generated root CA, using the --external-ca flag of the docker Swarminit 
+command
+
+> docker swarm init
+
+> cd /var/lib/docker
+
+> cd swarm/
+
+> ls 
+
+> cd certificates/
+
+Overview of Tokens
+------------------
+* The manager node also generates two tokens to use when you join additional node to the swarm: one worker and one
+manager token
+ 
+* Each token include the digest of the root CA's certificate and a randomly generated secret.
+
+* When a node joins the swarm, the swarm the joining node uses the digest to validate the root CA certificate from the 
+remote manager
+
+#Rotating the CA Certificate
+----------------------------
+> Run docker swarn ca --rotate to generate a new CA certificate and key.
+
+* In the above command, docker generated a cross-signet certificate signed by previous old CA.
+
+* AFter every node in the swarm has a new TLS certificate signed by the new CA, Docker forgets about the old
+CA certificate and key matetial, and tells all the nodes to trust the new CA certificate only.
+
+* Join tokens also change accordingly.
+
+> docker swarm join-token worker
+
+Certificate Details
+-------------------
+* By default, each node in a swarm renews its certificate every 3 months
+* You can configure this interval by running the docker swarm update --cert-expiry <TIME PERIOD>
+* In the event that a cluster CA key or a manager node is compromisedm you can rotate the swarm root CA so that
+none of the nodes trust certificates signed by the old root CA anymore.
+
+Privileged containers
+---------------------
+* Privileged container can access all the devices on the host as well as have configuration in AppArmor or 
+SELinux to allow the container nearly all the same access to the host as processes running outside containers on the host.
+
+* Limits that you set for privileged containers will not be followed.
+* Running a privileged flag gives all the capabilities to the container
+
+> docker run -d --privileged amazonlinix bash

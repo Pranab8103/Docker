@@ -1,0 +1,112 @@
+# Overview of docker networking
+-------------------------------
+* Docker takes care of the networking aspects so that container can communicate with other containers
+and also with the Docker host.
+
+* Docker networking subsystem is pluggable, using drivers.
+
+* There are several drivers avaiable by default, and provides core networking functionality.
+    - bridge
+    - host
+    - overlay
+    - macvlan
+    - none
+
+#Inspect a network with bridge driver  
+> docker network inspect bridge
+
+#Inspect a network with host driver
+> docker network inspect host 
+
+> docker container run -dt --name myhost --network host ubuntu
+
+#Overview of Bridge network
+---------------------------
+*A bridge network uses a software bridge which allows containers connected to the same
+bridge network network to commnicate, while providing isolation from containers which are not
+connected to that bridge network.
+
+* For bridge network the communication between container is allowed. For certain other networks it
+is not allowed.
+
+* The container intercommunication traffic always goes through the Docker0 bridge network.
+
+* We can also specify user-defined bridge network to which containers can commnicate.
+
+#inspect the bridge network, ip addresses etc....
+> docker container inspect myhost1
+
+#by default it will be created in bridge network
+> docker container run -dt --name bridge01 ubuntu
+
+> docker container run -dt --name bridge02 ubuntu
+
+> docker container exec -it bridge01 bash
+    - ifconfig
+    - apt-get update && apt-get install net-tools
+    - ping 172.17.0.3 
+    - apt-get install iputils-ping
+    - ping 172.17.0.3
+
+#Overview of User-defined bridge network
+----------------------------------------
+There are various difference between default and user-defined bridge. Some of these includes:
+
+* User-Defined bridge provide better isolation and interoperability between containerized applications.
+* User-Defined bridges provide automatic DNS resolution between containers.
+* Containers can be attached and detached from user-defined networks on the fly.
+* Each user-defined network creates a configurable bridge.
+* Linked containers on the default bridge network share environment variables.
+
+#create a user defined bridge
+-----------------------------
+> docker network ls
+
+> docker network create --driver bridge mybridge
+
+# Understanding host network
+----------------------------
+* This driver removes the network isolation between the docker host and the docker containers
+to use the hosts networking directly
+* For instance, if you run a container which binds to port 80 and you use host networking,
+the containers application will be avaiable
+
+> docker container run -dt --name myhost --network host ubuntu
+
+> docker container exec -it myhost bash 
+    - apt-get update && apt-get install net-tools
+
+> docker container run -dt --name myhost --network host ubuntu
+
+> docker container exec -it mybridge bash
+    - apt-get update && apt-get install net-tools -y
+    - ifconfig
+    - netstat -ntlp
+    - apt-get install nginx
+    - /etc/init.d/nginx start
+
+Overview of None network
+------------------------
+> If you want to completely disable the networking stack on a container, you can use the none 
+network. 
+
+> This will not configure any IP for the container and doesnot have any access to the external network as 
+well as for other containers.
+
+> docker container run -dt --name mynone --network none alpine 
+
+Overview of port publishing
+---------------------------
+* There is also a second approach to publish all the exposed ports of the container.
+
+> docker container run -dt --name webserver -P nginx
+
+* This is also referred as a publish all
+
+* In this approach, all exposed ports are published to random ports of the host.  
+
+#Legacy approach for linking containers
+---------------------------------------
+> docker container run -dt --name container01 busybox sh 
+
+> docker container run -dt --link container01:container --name container02 busybox sh

@@ -1,0 +1,16 @@
+kind: Pod 
+metadata: 
+  name: liveness 
+spec: 
+  containers:
+  - name: liveness 
+    image: ubuntu
+    tty: true
+    readinessProbe:
+      exec: 
+        command:
+        - cat 
+        - /tmp/healthy
+      
+      initialDelaySeconds: 5 
+      periodSeconds: 5

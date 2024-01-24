@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: promethium-DeamonSet
+spec:
+  selector:
+    matchLabels:
+      name: promethium-all-pods 
+  template:
+    metadata:
+      labels:
+        name: promethium-all-pods
+    spec:
+      containers:
+      - name: promethium-pods
+        image: nginx
